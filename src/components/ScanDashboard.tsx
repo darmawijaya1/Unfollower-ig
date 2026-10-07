@@ -17,7 +17,8 @@ const nf = new Intl.NumberFormat("id-ID");
 export function ScanDashboard({ user, onSessionExpired }: Props) {
   const [scan, setScan] = useState<ScanState>(emptyScan);
   const [status, setStatus] = useState<Status>("running");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
+  const [waitMs, setWaitMs] = useState<number | null>(null);
   const [profile, setProfile] = useState<ProfileInfo | null>(null);
   const latest = useRef<ScanState>(scan);
   const abortRef = useRef<AbortController | null>(null);
@@ -36,15 +37,28 @@ export function ScanDashboard({ user, onSessionExpired }: Props) {
           setScan(state);
         },
         controller.signal,
+        setWaitMs,
       );
       setStatus("done");
     } catch (e) {
       if (controller.signal.aborted) return;
-      if (e instanceof ScanError && e.code === "session_expired") {
+      const code = e instanceof ScanError ? e.code : "unknown";
+      const fetched = latest.current.followers.users.length + latest.current.following.users.length;
+
+      // Cookie sesi di aplikasi hilang, atau Instagram menolak sesi sejak request pertama.
+      if (code === "not_logged_in" || (code === "session_expired" && fetched === 0)) {
         onSessionExpired();
         return;
       }
-      setError(e instanceof Error ? e.message : "Terjadi kesalahan.");
+      // Instagram menolak di tengah scan: simpan progres & sesi, beri kesempatan lanjut.
+      if (code === "session_expired") {
+        setError({
+          code,
+          message: `Instagram menolak permintaan di tengah scan (${nf.format(fetched)} akun sudah terambil). Biasanya ini pembatasan sementara. Tunggu 5–10 menit (jangan muat ulang halaman, progres akan hilang), lalu klik "Lanjutkan scan". Jika ditolak lagi, login ulang atau pakai Upload data export.`,
+        });
+      } else {
+        setError({ code, message: e instanceof Error ? e.message : "Terjadi kesalahan." });
+      }
       setStatus("error");
     }
   }, [onSessionExpired]);
@@ -86,7 +100,7 @@ export function ScanDashboard({ user, onSessionExpired }: Props) {
         </h2>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           {status === "running"
-            ? "Jangan tutup tab ini. Akun dengan ribuan followers bisa memakan waktu beberapa menit karena kami sengaja memberi jeda antar permintaan."
+            ? "Jangan tutup tab ini. Akun dengan ribuan followers bisa memakan waktu beberapa menit karena kami sengaja memberi jeda (dan istirahat berkala) agar Instagram tidak membatasi akunmu."
             : "Progres tersimpan — kamu bisa melanjutkan dari titik terakhir."}
         </p>
 
@@ -97,7 +111,12 @@ export function ScanDashboard({ user, onSessionExpired }: Props) {
 
         {error && (
           <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/50 dark:text-red-300">
-            {error}
+            {error.message}
+          </p>
+        )}
+        {status === "running" && waitMs !== null && waitMs >= 10_000 && (
+          <p className="mt-4 text-xs text-slate-500" role="status">
+            Istirahat sebentar (±{Math.round(waitMs / 1000)} dtk) supaya tidak dibatasi Instagram…
           </p>
         )}
 
@@ -114,9 +133,16 @@ export function ScanDashboard({ user, onSessionExpired }: Props) {
               Hentikan
             </button>
           ) : (
-            <button type="button" className="btn-primary" onClick={() => void start()}>
-              Lanjutkan scan
-            </button>
+            <>
+              <button type="button" className="btn-primary" onClick={() => void start()}>
+                Lanjutkan scan
+              </button>
+              {error?.code === "session_expired" && (
+                <button type="button" className="btn-ghost" onClick={onSessionExpired}>
+                  Login ulang
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -15,7 +15,7 @@ export const maxDuration = 30;
 export async function GET(req: NextRequest) {
   try {
     const session = readSession(req);
-    if (!session) return jsonError("session_expired", "Sesi berakhir. Silakan login ulang.", 401);
+    if (!session) return jsonError("not_logged_in", "Sesi berakhir. Silakan login ulang.", 401);
 
     const type = req.nextUrl.searchParams.get("type");
     if (type !== "followers" && type !== "following") {

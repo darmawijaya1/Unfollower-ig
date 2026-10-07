@@ -212,6 +212,12 @@ export async function submitTwoFactor(
   throw new InstagramError("unknown", "Respons verifikasi Instagram tidak dikenali. Coba lagi nanti.", 502);
 }
 
+/** Catat alasan penolakan Instagram (hanya status & pesan singkat) untuk diagnosis di log server. */
+function logRejection(r: IgResponse): void {
+  const message = String(r.json?.message ?? "").slice(0, 80);
+  console.warn(`[ig] request ditolak: status=${r.status} message=${JSON.stringify(message)}`);
+}
+
 /** Lempar error yang sesuai untuk respons endpoint yang butuh sesi login. */
 function assertAuthedOk(r: IgResponse): void {
   if (
@@ -220,11 +226,13 @@ function assertAuthedOk(r: IgResponse): void {
     r.json?.message === "login_required" ||
     r.json?.require_login === true
   ) {
-    throw new InstagramError("session_expired", "Sesi Instagram berakhir. Silakan login ulang.", 401);
+    logRejection(r);
+    throw new InstagramError("session_expired", "Instagram menolak sesi ini. Silakan login ulang.", 401);
   }
   if (isCheckpoint(r)) throw checkpointError();
   if (isRateLimited(r)) throw rateLimitedError();
   if (r.status >= 400 || r.json?.status === "fail" || !r.json) {
+    logRejection(r);
     throw new InstagramError("unknown", "Instagram mengembalikan respons yang tidak terduga.", 502);
   }
 }

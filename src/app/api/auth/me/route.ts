@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function GET(req: NextRequest) {
   try {
     const session = readSession(req);
-    if (!session) return jsonError("session_expired", "Belum login.", 401);
+    if (!session) return jsonError("not_logged_in", "Belum login.", 401);
     return NextResponse.json({ status: "ok", user: { userId: session.userId, username: session.username } });
   } catch (error) {
     return handleError(error);

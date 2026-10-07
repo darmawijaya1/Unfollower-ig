@@ -99,16 +99,20 @@ describe("runScan", () => {
     expect(waits.filter((w) => w !== null).every((w) => (w as number) >= 3_000)).toBe(true);
   });
 
-  it("berhenti saat dibatalkan (abort)", async () => {
+  it("abort saat jeda langsung menghentikan scan tanpa menunggu timer, dan membersihkan onWait", async () => {
     mockApi();
     const controller = new AbortController();
-    const run = runScan(emptyScan(), () => undefined, controller.signal).then(
+    const waits: (number | null)[] = [];
+    const run = runScan(emptyScan(), () => undefined, controller.signal, (ms) => waits.push(ms)).then(
       () => "selesai",
       (e: unknown) => (e as Error).name,
     );
+    // Maju sedikit saja: halaman pertama terambil dan scan sedang menunggu jeda 3–6 dtk.
     await vi.advanceTimersByTimeAsync(100);
+    expect(waits.at(-1)).toBeGreaterThanOrEqual(3_000);
     controller.abort();
-    await vi.runAllTimersAsync();
+    // Timer TIDAK dimajukan: jika listener abort di sleep() hilang, `run` menggantung (tes timeout).
     expect(await run).toBe("AbortError");
+    expect(waits.at(-1)).toBeNull();
   });
 });

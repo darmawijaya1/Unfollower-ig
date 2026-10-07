@@ -54,7 +54,7 @@ export function ScanDashboard({ user, onSessionExpired }: Props) {
       if (code === "session_expired") {
         setError({
           code,
-          message: `Instagram menolak permintaan di tengah scan (${nf.format(fetched)} akun sudah terambil). Biasanya ini pembatasan sementara. Tunggu 5–10 menit, lalu klik "Lanjutkan scan". Jika ditolak lagi, login ulang atau pakai Upload data export.`,
+          message: `Instagram menolak permintaan di tengah scan (${nf.format(fetched)} akun sudah terambil). Biasanya ini pembatasan sementara. Tunggu 5–10 menit (jangan muat ulang halaman, progres akan hilang), lalu klik "Lanjutkan scan". Jika ditolak lagi, login ulang atau pakai Upload data export.`,
         });
       } else {
         setError({ code, message: e instanceof Error ? e.message : "Terjadi kesalahan." });

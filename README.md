@@ -9,7 +9,7 @@ Aplikasi web (Next.js) untuk melihat **followers**, **following**, dan **siapa y
 - Daftar: *tidak follow balik*, *belum kamu follow balik*, *saling follow*, semua followers, semua following.
 - Pencarian, tautan ke profil, dan **unduh CSV** per daftar.
 - **Deteksi perubahan**: dibandingkan dengan scan sebelumnya (disimpan di `localStorage` browser kamu) → siapa yang baru unfollow / follower baru.
-- Scan bisa **dilanjutkan** jika terkena rate limit atau koneksi putus.
+- Scan bisa **dilanjutkan** jika terkena rate limit, koneksi putus, atau Instagram menolak sesi di tengah scan (progres tetap ada selama tab tidak ditutup atau dimuat ulang).
 
 ## Penting: batasan & risiko
 
@@ -17,6 +17,7 @@ Instagram **tidak menyediakan API resmi** untuk membaca daftar followers/followi
 
 - Secara teknis bertentangan dengan Ketentuan Layanan Instagram; pada kasus jarang akun bisa dibatasi sementara. Gunakan seperlunya, hanya untuk akunmu sendiri.
 - Endpoint bisa berubah kapan saja tanpa pemberitahuan.
+- Instagram bisa menolak/menghentikan sesi di tengah scan (terlihat sebagai status 401 di Vercel Logs untuk `/api/ig/list`). Scan sengaja dibuat pelan untuk mengurangi risikonya, tetapi tidak ada jaminan. Jika terjadi: tunggu 5–10 menit lalu klik *Lanjutkan scan*, atau pakai **Upload data export**.
 - **Login dari server cloud (Vercel) sering memicu verifikasi keamanan (checkpoint) atau diblokir**, karena IP datacenter. Jika itu terjadi, pakai mode **Upload data export** — selalu bisa dipakai dan paling aman.
 
 > Mode login diuji terhadap server Instagram tiruan (mock) dan unit test, bukan terhadap Instagram sungguhan. Perilaku nyata bisa berbeda.
@@ -26,7 +27,7 @@ Instagram **tidak menyediakan API resmi** untuk membaca daftar followers/followi
 - Password hanya diteruskan ke Instagram saat login — **tidak disimpan dan tidak dicatat di log**.
 - Sesi (cookie Instagram) disimpan di cookie `httpOnly` yang **dienkripsi AES-256-GCM** dengan `SESSION_SECRET`. Server tidak punya database; berlaku 7 hari atau sampai klik *Keluar*.
 - Endpoint yang mengubah state memeriksa header `Origin`; cookie `SameSite=Lax`; respons API `no-store`.
-- Daftar followers diambil **halaman per halaman** (100 akun/request) oleh browser dengan jeda acak, sehingga tiap request singkat dan muat di batas waktu fungsi Vercel.
+- Daftar followers diambil **halaman per halaman** (100 akun/request) oleh browser dengan jeda acak 3–6 detik (dan istirahat 20–30 detik tiap 6 halaman; akun dengan ribuan followers butuh beberapa menit), sehingga tiap request singkat dan muat di batas waktu fungsi Vercel.
 
 ## Deploy ke Vercel
 

@@ -28,6 +28,19 @@ export const emptyScan = (): ScanState => ({
 const MAX_PAGES_PER_LIST = 500;
 const MAX_RETRIES = 2;
 
+/** Setelah sekian halaman berturut-turut, istirahat lebih lama. */
+export const REST_EVERY_PAGES = 6;
+
+/**
+ * Jeda (ms) setelah `pagesDone` halaman. Scan yang terlalu rapat membuat Instagram
+ * menolak sesi di tengah jalan, jadi jeda sengaja acak (3–6 dtk) dengan istirahat
+ * panjang (20–30 dtk) berkala. Ini mengurangi — bukan menjamin bebas — pembatasan.
+ */
+export function delayAfterPage(pagesDone: number, random: () => number = Math.random): number {
+  if (pagesDone > 0 && pagesDone % REST_EVERY_PAGES === 0) return 20_000 + random() * 10_000;
+  return 3_000 + random() * 3_000;
+}
+
 const abortError = () => new DOMException("Aborted", "AbortError");
 
 function sleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -43,6 +56,15 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
     };
     signal.addEventListener("abort", onAbort, { once: true });
   });
+}
+
+async function wait(ms: number, signal: AbortSignal, onWait?: (ms: number | null) => void): Promise<void> {
+  onWait?.(ms);
+  try {
+    await sleep(ms, signal);
+  } finally {
+    onWait?.(null);
+  }
 }
 
 async function fetchPage(
@@ -101,6 +123,8 @@ export async function runScan(
   initial: ScanState,
   onUpdate: (state: ScanState) => void,
   signal: AbortSignal,
+  /** Dipanggil dengan lama jeda (ms) sebelum menunggu, dan `null` setelahnya. */
+  onWait?: (ms: number | null) => void,
 ): Promise<ScanState> {
   let state = initial;
 
@@ -123,9 +147,9 @@ export async function runScan(
       state = { ...state, [type]: progress };
       onUpdate(state);
 
-      if (!done) await sleep(1200 + Math.random() * 1300, signal);
+      if (!done) await wait(delayAfterPage(pages), signal, onWait);
     }
-    if (type === "followers") await sleep(1500, signal);
+    if (type === "followers") await wait(5000, signal, onWait);
   }
   return state;
 }

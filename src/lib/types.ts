@@ -34,6 +34,7 @@ export type AuthErrorCode =
   | "invalid_code"
   | "checkpoint"
   | "rate_limited"
+  | "not_logged_in"
   | "session_expired"
   | "bad_request"
   | "server_misconfigured"
